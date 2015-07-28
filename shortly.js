@@ -24,6 +24,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
 // Session middleware
+  // BUG: req.sessionId is recreated on each page, rather than persisted for each user
 app.use(session({
   secret: 'qwerty',
   resave: false,
@@ -100,22 +101,22 @@ app.post('/signup', function(req, res) {
     if (user) {
       // user has already signed up
       res.send(200, 'Username '+ username + ' is already taken')
-    } else {
-      bcrypt.genSalt(function(err, salt) {
-        bcrypt.hash(password, salt, function(err, hash) {
-          var user = new User({
-            username: username,
-            password: hash,
-            salt: salt
-          });          
-          user.save().then(function(newUser) {
-            Users.add(newUser);
 
-            // add user sessionID to SessionStore
-            req.sessionStore.set(req.sessionID, req.session, function(err){
-              if(err){ console.log(err); return; }
-              res.redirect('/index');
-            });
+    } else {
+
+      bcrypt.hash(password, null, null, function(err, hash) {
+        if(err){ console.log('error hashing password: ', err); }
+        var user = new User({
+          username: username,
+          password: hash
+        });
+        user.save().then(function(newUser) {
+          Users.add(newUser);
+
+          // add user sessionID to SessionStore
+          req.sessionStore.set(req.sessionID, req.session, function(err){
+            if(err){ console.log('error adding cookie session to sessionStore ', err); }
+            res.redirect('/index');
           });
         });
       });
