@@ -114,10 +114,8 @@ app.post('/signup', function(req, res) {
 
           // add user sessionID to SessionStore
 
-          req.session.regenerate(function(err){
-            if(err){ console.log('error adding cookie session to sessionStore ', err); }
-            req.session.user = newUser.get('username');
-            res.redirect('/index');
+          util.defineSession(req, newUser, function() {
+            res.redirect('/index');            
           });
 
         });
@@ -131,7 +129,26 @@ app.post('/login', function(req, res) {
   var username = req.body.username;
   var password = req.body.password;
 
+  new User({username: username}).fetch().then(function(user) {
+    if (user) {
+      bcrypt.compare(password, user.get('password'), function(err, matches) {
+        if (err) { throw err; }
+        if (matches) {
+          // correct password
+          util.defineSession(req, user, function() {
+            res.redirect('/index');            
+          });
+        } else {
+          // incorrect password
+          res.send(200, 'Incorrect username or password');
+        }
+      });
 
+    } else {
+      // incorrect username
+      res.send(200, 'Incorrect username or password');
+    }
+  });
 });
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
