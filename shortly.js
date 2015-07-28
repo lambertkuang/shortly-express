@@ -2,7 +2,8 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
-
+var session = require('express-session');
+var bcrypt = require('bcrypt-nodejs');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -22,26 +23,40 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
+// Session middleware
+app.use(session({
+  secret: 'qwerty',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: true, maxAge: null }
+}));
+app.use(util.checkSignInStatus);
 
-app.get('/', 
-function(req, res) {
+
+
+app.get('/', function(req, res) {
   res.render('index');
 });
 
-app.get('/create', 
-function(req, res) {
+app.get('/create', function(req, res) {
   res.render('index');
 });
 
-app.get('/links', 
-function(req, res) {
+app.get('/links', function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links', 
-function(req, res) {
+app.get('/login', function(req, res) {
+  res.render('login');
+});
+
+app.get('/signup', function(req,res){
+  res.render('signup');
+});
+
+app.post('/links', function(req, res) {
   var uri = req.body.url;
 
   if (!util.isValidUrl(uri)) {
@@ -77,7 +92,37 @@ function(req, res) {
 /************************************************************/
 // Write your authentication routes here
 /************************************************************/
+app.post('/signup', function(req, res) {
+  var username = req.body.username;
+  var password = req.body.password;
 
+  new User({username: username}).fetch().then(function(user) {
+    if (user) {
+      // user has already signed up
+      res.send(200, 'Username '+ username + ' is already taken')
+    } else {
+      bcrypt.genSalt(function(err, salt) {
+        bcrypt.hash(password, salt, function(err, hash) {
+          var user = new User({
+            username: username,
+            password: hash,
+            salt: salt
+          });          
+          user.save().then(function(newUser) {
+            Users.add(newUser);
+
+            // add user sessionID to SessionStore
+            req.sessionStore.set(req.sessionID, req.session, function(err){
+              if(err){ console.log(err); return; }
+              res.redirect('/index');
+            });
+          });
+        });
+      });
+
+    }
+  });
+});
 
 
 /************************************************************/
