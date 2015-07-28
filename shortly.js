@@ -28,8 +28,8 @@ app.use(express.static(__dirname + '/public'));
 app.use(session({
   secret: 'qwerty',
   resave: false,
-  saveUninitialized: true,
-  cookie: { secure: true, maxAge: null }
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: null }
 }));
 app.use(util.checkSignInStatus);
 
@@ -103,7 +103,6 @@ app.post('/signup', function(req, res) {
       res.send(200, 'Username '+ username + ' is already taken')
 
     } else {
-
       bcrypt.hash(password, null, null, function(err, hash) {
         if(err){ console.log('error hashing password: ', err); }
         var user = new User({
@@ -114,10 +113,13 @@ app.post('/signup', function(req, res) {
           Users.add(newUser);
 
           // add user sessionID to SessionStore
-          req.sessionStore.set(req.sessionID, req.session, function(err){
+
+          req.session.regenerate(function(err){
             if(err){ console.log('error adding cookie session to sessionStore ', err); }
+            req.session.user = newUser.get('username');
             res.redirect('/index');
           });
+
         });
       });
 
@@ -125,7 +127,12 @@ app.post('/signup', function(req, res) {
   });
 });
 
+app.post('/login', function(req, res) {
+  var username = req.body.username;
+  var password = req.body.password;
 
+
+});
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
 // assume the route is a short code and try and handle it here.
